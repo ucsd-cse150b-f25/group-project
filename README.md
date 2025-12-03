@@ -1,64 +1,110 @@
-# ChessLab (Group Project)
+# ChessLab - CSE 150B Group Project
 
-Self-contained chess GUI and AI assignment for CSE 150B.
+Welcome to ChessLab. In this project, you'll implement a chess-playing AI using the search algorithms we've covered in class. Your AI will compete against your classmates' implementations in a class tournament.
 
 ## Game Rules
 
-Standard chess rules apply with the following simplifications:
+We're using standard chess rules with a few simplifications to keep the focus on search algorithms:
+
 - No castling
 - No en passant
 - Pawn promotion is to Queen only
 
-These omissions keep the focus on search algorithms rather than edge-case move generation.
+These omissions mean you don't have to worry about edge cases in move generation. The `Board` class handles all the legal move logic for you.
 
-## GUI Usage
+## Getting Started
 
-Run with `python -m chesslab` from the project root.
+### Running the GUI
 
-Click a piece, then click its destination square. Three play modes are available:
+From the project root:
+
+```bash
+python main.py --gui
+```
+
+Click a piece, then click a destination square. You can play:
 - Human vs Human
 - Human vs AI
 - AI vs AI
 
+Use the dropdown menus to select the AI algorithm and search depth.
+
+### Running AI vs AI (Headless)
+
+For faster iteration without the GUI:
+
+```bash
+# Your AI vs itself
+python main.py --white chesslab/ai/ai.py --black chesslab/ai/ai.py --time 5
+
+# With custom time limit and max moves
+python main.py --white chesslab/ai/ai.py --black chesslab/ai/ai.py --time 2 --max-moves 100
+```
+
 ## Your Task
 
-Implement your AI in `chesslab/ai/ai.py`. This is the only file you submit to Gradescope.
+All your work goes in `chesslab/ai/ai.py`. This is the **only file** you'll submit to Gradescope.
 
-You must implement one or more of the following: Random, Minimax, or AlphaBeta search.
+You need to implement:
 
-## Tournament
+1. **`evaluate(board)`** - Return a heuristic score from White's perspective. Positive = good for White, negative = good for Black.
 
-Your submissions will compete against each other in a class tournament. Here is what you need to know.
+2. **`choose_minimax_move(board, depth, metrics)`** - Pick a move using minimax search (no pruning). Return `(move, nodes_visited)`.
 
-### How It Works
+3. **`choose_alphabeta_move(board, depth, metrics)`** - Pick a move using alpha-beta pruning. Return `(move, nodes_visited)`.
 
-The tournament runs five rounds with increasing time limits per move:
-- Sprint: ? seconds/move
-- Blitz: ? seconds/move
-- Rapid: ? seconds/move
-- Classical: ? seconds/move
-- Extended: ? seconds/move
+4. **`choose_move(board)`** (optional but recommended) - A generator function for iterative deepening. More on this below.
 
-Each team plays every other team twice per round (once as White, once as Black). Scoring follows standard chess conventions: 1 point for a win, 0.5 for a draw, 0 for a loss.
+A basic `choose_random_move(board)` is provided for reference.
+
+## The Tournament
+
+Your submissions compete against each other in a class-wide tournament. Here's what you need to know.
+
+### Tournament Rounds
+
+The tournament runs five rounds with increasing time limits:
+
+| Round     | Time per Move |
+|-----------|---------------|
+| Sprint    | ? seconds     |
+| Blitz     | ? seconds     |
+| Rapid     | ? seconds    |
+| Classical | ? seconds    |
+| Extended  | ? seconds    |
+
+Each team plays every other team twice per round (once as White, once as Black).
+
+### Scoring
+
+- Win: 1 point
+- Draw: 0.5 points
+- Loss: 0 points
+
+Final standings aggregate points across all rounds.
 
 ### Time Limits and Forfeits
 
-Your AI must return a move before the time limit expires. If it does not, you forfeit that game. Your code does not receive the time limit as a parameter. Design your search to return reasonable moves quickly.
+**Your AI does not receive the time limit as a parameter.** You need to design your search to return reasonable moves quickly.
 
-### Supported Function Signatures
+If your AI doesn't return a move before time runs out, you forfeit that move (your opponent gets to move again). This is more forgiving than losing the entire game, but you're still at a disadvantage.
 
-The tournament checks for these functions in your `ai.py`, in this order:
+### Which Function Gets Called?
 
-1. `choose_move(board)` - Preferred. Can be a regular function or a generator.
-2. `choose_alphabeta_move(board, depth, metrics)` - Legacy format, returns `(move, node_count)`.
-3. `choose_minimax_move(board, depth, metrics)` - Legacy format, returns `(move, node_count)`.
-4. `choose_random_move(board)` - Fallback.
+The tournament checks for functions in this order:
 
-The first function found is used for the tournament.
+1. `choose_move(board)` - Preferred (generator or regular function)
+2. `choose_alphabeta_move(board, depth, metrics)`
+3. `choose_minimax_move(board, depth, metrics)`
+4. `choose_random_move(board)`
 
-### Generator Pattern for Iterative Deepening
+The first one found is used. If you implement `choose_move`, that's what runs in the tournament.
 
-If you implement iterative deepening search (IDS -- (in progress, may not work perfectly yet!)), consider using a generator. This allows you to yield progressively better moves as you search deeper. The tournament will use the last move you yielded when time runs out.
+## Iterative Deepening with Generators
+
+Here's the key insight: with a fixed time limit and no depth parameter, you want to search as deep as possible while always having a move ready. This is where iterative deepening shines.
+
+Python generators let you yield moves progressively. The tournament uses the **last move you yielded** when time runs out:
 
 ```python
 def choose_move(board):
@@ -66,47 +112,78 @@ def choose_move(board):
     if not legal_moves:
         return
 
-    # Yield a quick move immediately to avoid forfeit
-    yield random.choice(legal_moves)
+    # Yield something immediately to avoid forfeit
+    yield legal_moves[0]
 
-    # Search deeper and yield better moves
+    # Now search deeper and yield better moves
     for depth in range(1, 50):
         best_move = alphabeta_search(board, depth)
         if best_move:
             yield best_move
 ```
 
-The key point: yield a move early. If time expires before you yield anything, you forfeit. The generator pattern gives you a safety net while still allowing deeper search when time permits.
+**Critical**: Yield a move early. If time expires before you yield anything, you forfeit your move. The generator pattern gives you a safety net while still allowing deeper search when time permits.
 
-### Example AI
+## Board API Reference
 
-See `chesslab/ai/ai_example.py` for a complete implementation demonstrating both the generator pattern and the legacy function signatures.
+The `Board` class provides everything you need:
+
+```python
+board.turn           # 'w' or 'b' - whose turn it is
+board.legal_moves()  # List of legal Move objects
+board.clone()        # Deep copy of the board
+board.make(move)     # Apply a move (modifies the board)
+board.piece_at(r, c) # Get piece at row, col (e.g., 'wK', 'bP', or None)
+board.outcome()      # None, ('checkmate', winner), or ('stalemate', None)
+board.is_check(color) # Is the given color in check?
+```
+
+A `Move` object has:
+```python
+move.src      # (row, col) tuple - starting square
+move.dst      # (row, col) tuple - ending square
+move.promote  # 'Q' if pawn promotion, else None
+```
+
+Board coordinates: row 0 is Black's back rank, row 7 is White's back rank. Column 0 is the a-file, column 7 is the h-file.
 
 ## Project Structure
 
 ```
 chesslab/
-    __init__.py
-    __main__.py      # Entry point
-    board.py         # Board representation and move generation
-    gui.py           # Tkinter interface
-    ai/
-        __init__.py
-        ai.py        # Your implementation goes here
-        ai_example.py # Reference implementation
-    common/
-        profiling.py # Performance measurement utilities
+├── __init__.py
+├── board.py         # Board representation and move generation
+├── gui.py           # Tkinter interface
+├── mode.py          # Game mode helpers
+├── main.py          # Entry point
+└── ai/
+    ├── __init__.py
+    ├── ai.py        # YOUR CODE GOES HERE
+    └── random_agent.py
 ```
 
-## Running the Tournament Locally
+## Tips
 
-Coming soon!:
+1. **Start simple.** Get minimax working before adding alpha-beta. Get alpha-beta working before iterative deepening.
 
-```bash
-# insert test example here
+2. **Test locally.** Use the headless mode to run many games quickly. Don't rely on Gradescope for iteration.
 
-```
+3. **Evaluation matters.** A good evaluation function with shallow search often beats a bad evaluation function with deep search.
+
+4. **Move ordering helps alpha-beta.** Try captures first, or moves that were good at shallower depths.
+
+5. **Profile your code.** If you're only reaching depth 2 in 5 seconds, something's wrong. The provided `Counter` class in `common/profiling.py` can help track node counts.
+
+6. **Don't import external libraries.** The tournament environment only has the standard library and the `chesslab` package. No chess libraries, nothing else. Only Numpy is allowed so only `import numpy` or `import numpy as np` are allowed.
 
 ## Submission
 
-Upload only `ai.py` to Gradescope. The autograder tests basic functionality. Tournament performance is evaluated separately.
+Upload only `ai.py` to Gradescope. The autograder tests basic functionality (does your code run? does it return legal moves?). I will try to run the tournament often to provide feedback, but the final tournament performance will be evaluated separately after the deadline.
+
+## Questions?
+
+Post on Piazza for coding questions, and on Discord for general (non coding related) questions, or come to office hours. Don't post your code publicly!!! Or face my wrath.
+
+Good luck, and may the best AI agents win.
+
+-- Your Prof

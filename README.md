@@ -85,7 +85,15 @@ Final standings aggregate points across all rounds.
 
 ### Material Diff (Tiebreaker)
 
-In the tournament results, you'll see a "Material Diff" column. This is the cumulative material difference across all your games, calculated using standard piece values (Pawn=1, Knight=3, Bishop=3, Rook=5, Queen=9).
+In the tournament results, you'll see a "Material Diff" column. This is the cumulative material difference across all your games, calculated using standard piece values:
+
+| Piece  | Value |
+|--------|-------|
+| Pawn   | 1     |
+| Knight | 3     |
+| Bishop | 3     |
+| Rook   | 5     |
+| Queen  | 9     |
 
 A positive Material Diff means you ended games with more material than your opponents on average. It's used as a tiebreaker when teams have the same points - if you're winning games but doing so with more pieces on the board, that's a sign of stronger play.
 

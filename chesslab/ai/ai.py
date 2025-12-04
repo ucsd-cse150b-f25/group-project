@@ -21,7 +21,6 @@ MoveType = Tuple[Tuple[int, int], Tuple[int, int], Optional[str]]
 
 
 def choose_random_move(board):
-    # LEGACY IMPLEMENTATION
     """Return a uniformly random legal move or None if no moves exist."""
     legal = board.legal_moves()
     return random.choice(legal) if legal else None
@@ -33,7 +32,6 @@ def evaluate(board):
 
 
 def choose_minimax_move(board, depth=2, metrics=None):
-    # LEGACY IMPLEMENTATION
     """
     Pick a move for the current player using minimax (no pruning).
 
@@ -44,7 +42,6 @@ def choose_minimax_move(board, depth=2, metrics=None):
 
 
 def choose_alphabeta_move(board, depth=3, metrics=None):
-    # LEGACY IMPLEMENTATION
     """
     Pick a move for the current player using minimax with alpha-beta pruning.
 
@@ -55,7 +52,6 @@ def choose_alphabeta_move(board, depth=3, metrics=None):
 
 
 def choose_move(board):
-    # MUST IMPLEMENT FOR CREDIT
     """
     Pick a move using iterative deepening search (IDS).
 

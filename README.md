@@ -73,7 +73,7 @@ The tournament runs five rounds with increasing time limits:
 | Classical | ? seconds    |
 | Extended  | ? seconds    |
 
-Each team plays every other team twice per round (once as White, once as Black).
+Each team plays every other team six times per round (three games as White, three as Black).
 
 ### Scoring
 
@@ -82,6 +82,12 @@ Each team plays every other team twice per round (once as White, once as Black).
 - Loss: 0 points
 
 Final standings aggregate points across all rounds.
+
+### Material Diff (Tiebreaker)
+
+In the tournament results, you'll see a "Material Diff" column. This is the cumulative material difference across all your games, calculated using standard piece values (Pawn=1, Knight=3, Bishop=3, Rook=5, Queen=9).
+
+A positive Material Diff means you ended games with more material than your opponents on average. It's used as a tiebreaker when teams have the same points - if you're winning games but doing so with more pieces on the board, that's a sign of stronger play.
 
 ### Time Limits and Forfeits
 
@@ -184,6 +190,6 @@ Upload only `ai.py` to Gradescope. The autograder tests basic functionality (doe
 
 Post on Piazza for coding questions, and on Discord for general (non coding related) questions, or come to office hours. Don't post your code publicly!!! Or face my wrath.
 
-Good luck, and may the best AI agents win.
+Good luck, and may the best search algorithm win.
 
 -- Your Prof

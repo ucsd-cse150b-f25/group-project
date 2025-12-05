@@ -195,6 +195,11 @@ class App:
         self.stopped=False
         self.started=False
 
+        # Human timer state
+        self.human_turn_start=None
+        self.human_timer_id=None
+        self.human_time_remaining=None
+
         # Custom AI modules for white and black
         self.white_ai_module = None
         self.black_ai_module = None
@@ -242,8 +247,13 @@ class App:
             try: self.root.after_cancel(self.ai_after_id)
             except Exception: pass
             self.ai_after_id=None
+        if self.human_timer_id is not None:
+            try: self.root.after_cancel(self.human_timer_id)
+            except Exception: pass
+            self.human_timer_id=None
         self.ai_busy=False
         self.paused=False; self.stopped=False; self.started=False
+        self.human_turn_start=None; self.human_time_remaining=None
         self.start_btn.configure(text='Start')
         self.draw()
 
@@ -285,6 +295,83 @@ class App:
     def game_over(self):
         return self.board.outcome() is not None
 
+    def start_human_timer(self):
+        """Start or resume the human move timer."""
+        if self.human_time_remaining is not None:
+            # Resuming from pause - use remaining time
+            pass
+        else:
+            # Fresh turn - full time limit
+            self.human_time_remaining = float(self.time_limit.get())
+        self.human_turn_start = time.time()
+        self.update_human_timer()
+
+    def stop_human_timer(self):
+        """Stop the human timer (for pause or move completion)."""
+        if self.human_timer_id is not None:
+            try: self.root.after_cancel(self.human_timer_id)
+            except Exception: pass
+            self.human_timer_id = None
+        if self.human_turn_start is not None:
+            # Calculate remaining time when pausing
+            elapsed = time.time() - self.human_turn_start
+            if self.human_time_remaining is not None:
+                self.human_time_remaining = max(0, self.human_time_remaining - elapsed)
+            self.human_turn_start = None
+
+    def reset_human_timer(self):
+        """Reset the human timer for a new turn."""
+        self.stop_human_timer()
+        self.human_time_remaining = None
+
+    def update_human_timer(self):
+        """Update the human timer display and check for timeout."""
+        if not self.started or self.paused or self.stopped or self.game_over():
+            return
+        if not is_human_turn(self.mode.get(), self.board.turn, self.human_side):
+            return
+
+        if self.human_turn_start is None:
+            return
+
+        elapsed = time.time() - self.human_turn_start
+        remaining = self.human_time_remaining - elapsed if self.human_time_remaining else 0
+
+        if remaining <= 0:
+            # Human timed out - forfeit the move
+            self.human_forfeit_move()
+            return
+
+        # Update status with time remaining
+        color_name = 'White' if self.board.turn == 'w' else 'Black'
+        self.status.set(f'{color_name} to move. Time: {remaining:.1f}s')
+
+        # Schedule next update
+        self.human_timer_id = self.root.after(100, self.update_human_timer)
+
+    def human_forfeit_move(self):
+        """Handle human move forfeit due to timeout."""
+        self.stop_human_timer()
+        current_color = self.board.turn
+        color_name = 'White' if current_color == 'w' else 'Black'
+
+        # Check if player is in check - forfeit while in check = checkmate (loss)
+        if self.board.is_check(current_color):
+            winner = self.board.enemy(current_color)
+            winner_name = 'White' if winner == 'w' else 'Black'
+            self.status.set(f'{color_name} forfeits while in check. {winner_name} wins!')
+            self.info.set(f'{color_name} timed out while in check - game over')
+            self.stopped = True
+            self.draw()
+            return
+
+        # Regular forfeit - skip turn
+        self.board.turn = self.board.enemy(self.board.turn)
+        self.info.set(f'{color_name} forfeits move (timeout)')
+        self.selected = None
+        self.human_time_remaining = None  # Reset for next human turn
+        self.after_move()
+
     def can_human_act(self):
         return self.started and (not self.game_over()) and (not self.paused) and (not self.stopped) and (not self.ai_busy) and is_human_turn(self.mode.get(), self.board.turn, self.human_side)
 
@@ -295,7 +382,11 @@ class App:
             self.started=True; self.paused=False; self.stopped=False
             self.status.set('Started. ' + ('White' if self.board.turn=='w' else 'Black') + ' to move.')
             self.start_btn.configure(text='Pause')
-            self.ai_after_id = self.root.after(50, self.maybe_ai_move)
+            # Start human timer if it's human's turn
+            if is_human_turn(self.mode.get(), self.board.turn, self.human_side):
+                self.start_human_timer()
+            else:
+                self.ai_after_id = self.root.after(50, self.maybe_ai_move)
         elif self.paused:
             # Resume
             self.paused=False; self.stopped=False
@@ -305,10 +396,16 @@ class App:
                 except Exception: pass
                 self.ai_after_id=None
             self.start_btn.configure(text='Pause')
-            self.ai_after_id = self.root.after(50, self.maybe_ai_move)
+            # Resume human timer if it's human's turn
+            if is_human_turn(self.mode.get(), self.board.turn, self.human_side):
+                self.start_human_timer()
+            else:
+                self.ai_after_id = self.root.after(50, self.maybe_ai_move)
         else:
             # Pause
             self.paused=True
+            # Stop human timer if running (preserves remaining time)
+            self.stop_human_timer()
             self.status.set('Paused.')
             self.start_btn.configure(text='Resume')
 
@@ -321,6 +418,9 @@ class App:
         self.status.set('Stopped.')
 
     def after_move(self):
+        # Reset human timer for the new turn
+        self.reset_human_timer()
+
         oc=self.board.outcome()
         if oc:
             kind,winner=oc
@@ -332,7 +432,11 @@ class App:
                     try: self.root.after_cancel(self.ai_after_id)
                     except Exception: pass
                     self.ai_after_id=None
-                self.ai_after_id = self.root.after(50,self.maybe_ai_move)
+                # Start human timer or AI move based on whose turn it is
+                if is_human_turn(self.mode.get(), self.board.turn, self.human_side):
+                    self.start_human_timer()
+                else:
+                    self.ai_after_id = self.root.after(50,self.maybe_ai_move)
         self.draw()
 
     def get_ai_for_turn(self):
@@ -439,7 +543,16 @@ class App:
                         move = random_agent.choose_move(self.board)
 
             if forfeit:
-                # Forfeit the move (skip turn), not the game
+                # Check if AI is in check - forfeit while in check = checkmate (loss)
+                if self.board.is_check(current_color):
+                    winner = self.board.enemy(current_color)
+                    winner_name = 'White' if winner == 'w' else 'Black'
+                    self.status.set(f'{color_name} forfeits while in check. {winner_name} wins!')
+                    self.info.set(f"{color_name} AI ({ai_type_used}) timed out while in check - game over")
+                    self.stopped = True
+                    self.draw()
+                    return
+                # Regular forfeit - skip turn
                 self.board.turn = self.board.enemy(self.board.turn)
                 self.status.set(f'{color_name} forfeits move (timeout). ' + ('White' if self.board.turn=='w' else 'Black') + ' to move.')
                 self.info.set(f"{color_name} AI ({ai_type_used}) timed out - move forfeited")
@@ -459,7 +572,16 @@ class App:
                 self.info.set(info_str)
                 self.after_move()
             else:
-                # No move returned - forfeit the move (skip turn)
+                # No move returned - check if in check (forfeit while in check = loss)
+                if self.board.is_check(current_color):
+                    winner = self.board.enemy(current_color)
+                    winner_name = 'White' if winner == 'w' else 'Black'
+                    self.status.set(f'{color_name} forfeits while in check. {winner_name} wins!')
+                    self.info.set(f"{color_name} AI ({ai_type_used}) returned no move while in check - game over")
+                    self.stopped = True
+                    self.draw()
+                    return
+                # Regular no-move - forfeit the move (skip turn)
                 self.board.turn = self.board.enemy(self.board.turn)
                 self.info.set(f"{color_name} AI ({ai_type_used}) returned no move - move forfeited")
                 self.after_move()

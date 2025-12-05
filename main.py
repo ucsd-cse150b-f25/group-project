@@ -216,6 +216,12 @@ def run_headless(white_ai_path, black_ai_path, time_limit, max_moves):
                 forfeit = True
 
         if forfeit:
+            # Check if in check - forfeit while in check = checkmate (loss)
+            if board.is_check(current_color):
+                winner = 'Black' if current_color == 'w' else 'White'
+                print(f"Move {move_count + 1}: {color_name} forfeits move while in check (timeout)")
+                print(f"\n{color_name} forfeits while in check. {winner} wins!")
+                break
             # Forfeit the move (skip turn), not the game
             print(f"Move {move_count + 1}: {color_name} forfeits move (timeout)")
             board.turn = board.enemy(board.turn)
@@ -223,6 +229,11 @@ def run_headless(white_ai_path, black_ai_path, time_limit, max_moves):
             continue
 
         if move is None:
+            # Check if in check - no move while in check = checkmate (loss)
+            if board.is_check(current_color):
+                winner = 'Black' if current_color == 'w' else 'White'
+                print(f"\n{color_name} returned no move while in check. {winner} wins!")
+                break
             winner = 'Black' if current_color == 'w' else 'White'
             print(f"\n{color_name} returned no move. {winner} wins!")
             break

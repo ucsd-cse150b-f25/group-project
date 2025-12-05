@@ -270,10 +270,14 @@ class App:
                 self.selected=(r,c); self.draw()
         else:
             from .board import Move
-            mv=Move(self.selected,(r,c))
             if not self.can_human_act():
                 self.selected=None; self.draw(); return
-            if (mv.src,mv.dst) in [(m.src,m.dst) for m in self.board.legal_moves()]:
+            # Find the matching legal move (which includes promotion info if applicable)
+            legal = self.board.legal_moves()
+            matching = [m for m in legal if m.src == self.selected and m.dst == (r,c)]
+            if matching:
+                # Use the legal move (auto-promote to Queen if it's a promotion move)
+                mv = matching[0]
                 self.board.make(mv); self.selected=None; self.after_move()
             else:
                 self.selected=None; self.draw()
@@ -380,8 +384,7 @@ class App:
                 ai_type_used = ai_type
                 with Timer('ai_ms', metrics):
                     if ai_type == 'IDS':
-                        gen = ai_func(self.board.clone())
-                        move, moves_yielded, elapsed, completed, error = run_generator_with_timeout(gen, timeout)
+                        move, moves_yielded, elapsed, completed, error = run_generator_with_timeout(ai_func, self.board, timeout)
                         metrics['moves_yielded'] = moves_yielded
                         if move is None and not completed:
                             forfeit = True

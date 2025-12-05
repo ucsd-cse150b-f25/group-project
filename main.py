@@ -201,8 +201,7 @@ def run_headless(white_ai_path, black_ai_path, time_limit, max_moves):
         forfeit = False
 
         if ai_type == 'IDS':
-            gen = ai_func(board.clone())
-            move, moves_yielded, elapsed, completed, error = run_generator_with_timeout(gen, time_limit)
+            move, moves_yielded, elapsed, completed, error = run_generator_with_timeout(ai_func, board, time_limit)
             if move is None and not completed:
                 forfeit = True
         elif ai_type in ('AlphaBeta', 'Minimax'):
